@@ -1,0 +1,53 @@
+#!/bin/bash --norc
+set -euo pipefail
+
+function usage() {
+  cat <<EOF
+Usage:
+  trash [ -h | --help ]
+  trash
+  trash FILE [FILE ...]
+
+Send files or directories to a "trash can", to be deleted asynchronously by the
+trash daemon.
+
+If invoked with \`-h\` or \`--help\`, print this usage string and exit.
+If invoked with no arguments, print the paths of all the existent trash cans on
+this system.
+If invoked with one or more file paths, send those files to the trash can.
+EOF
+}
+
+for arg in "$@"; do
+  if [[ $arg == -h ]] || [[ $arg == --help ]]; then
+    usage
+    exit 0
+  fi
+done
+
+function do_print_trash_cans() {
+  # List all filesystem mount points.
+  mount -l |
+    # Filter to the read-write mount points.
+    grep -E '\(.*\brw\b.*\)' |
+    # Extract the mount point.
+    sed -Ee 's#^.+ on (.*) type .+#\1#' |
+    # Filter to mount points that have a .trash directory directly under them.
+    xargs -I{} find {} -type d -mindepth 1 -maxdepth 1 -name .trash
+}
+
+function do_move_to_trash() {
+  for f in "$@"; do
+    trash="$(df --output=target "$f" | tail -n +2)/.trash"
+    if [ ! -d "$trash" ]; then
+      mkdir -p "$trash"
+    fi
+    mv "$f" "$(mktemp -dp "$trash")"
+  done
+}
+
+if [[ $# == 0 ]]; then
+  do_print_trash_cans
+else
+  do_move_to_trash "$@"
+fi

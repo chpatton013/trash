@@ -1,0 +1,9 @@
+#!/bin/bash --norc
+set -euo pipefail
+
+# List all trash cans.
+${INSTALL_ROOT}/bin/trash |
+  # Find all top-level entries in the trash cans.
+  xargs -I{} find {} -mindepth 1 -maxdepth 1 |
+  # Remove them.
+  xargs rm -rf
