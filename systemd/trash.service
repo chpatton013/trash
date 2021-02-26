@@ -3,7 +3,7 @@ Description=Asynchronous file and directory removal service
 
 [Service]
 Type=oneshot
-ExecStart=${INSTALL_ROOT}/bin/trash-daemon
+ExecStart=${INSTALL_ROOT}/bin/trash-task
 
 [Install]
 WantedBy=multi-user.target
