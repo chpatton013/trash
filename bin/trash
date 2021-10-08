@@ -12,7 +12,7 @@ Send files or directories to a "trash can", to be deleted asynchronously by the
 trash daemon.
 
 If invoked with \`-h\` or \`--help\`, print this usage string and exit.
-If invoked with no arguments, print the paths of all the existent trash cans on
+If invoked with no arguments, print the paths of all the existing trash cans on
 this system.
 If invoked with one or more file paths, send those files to the trash can.
 EOF
@@ -25,24 +25,39 @@ for arg in "$@"; do
   fi
 done
 
+function _find_mount_point_trash_can() {
+  find "$1" -mount -type d -mindepth 1 -maxdepth 1 -name .trash 2>/dev/null || true
+}
+
+function _find_trash_can_for_file() {
+  mount_point="$(df --output=target "$1" | tail -n +2)"
+  if [[ $mount_point == */ ]]; then
+    echo ${mount_point}.trash
+  else
+    echo $mount_point/.trash
+  fi
+}
+
 function do_print_trash_cans() {
+  export -f _find_mount_point_trash_can
+
   # List all filesystem mount points.
   mount -l |
     # Filter to the read-write mount points.
     grep -E '\(.*\brw\b.*\)' |
     # Extract the mount point.
     sed -Ee 's#^.+ on (.*) type .+#\1#' |
-    # Filter to mount points that have a .trash directory directly under them.
-    xargs -I{} find {} -type d -mindepth 1 -maxdepth 1 -name .trash
+    # Print any .trash directories directly under them.
+    xargs -I{} bash -c '_find_mount_point_trash_can {}'
 }
 
 function do_move_to_trash() {
   for f in "$@"; do
-    trash="$(df --output=target "$f" | tail -n +2)/.trash"
-    if [ ! -d "$trash" ]; then
-      mkdir -p "$trash"
+    trash_can="$(_find_trash_can_for_file "$f")"
+    if [ ! -d "$trash_can" ]; then
+      mkdir -p "$trash_can"
     fi
-    mv "$f" "$(mktemp -dp "$trash")"
+    mv "$f" "$(mktemp -dp "$trash_can")"
   done
 }
 
